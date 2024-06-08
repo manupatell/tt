@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Your Telegram bot token
-TOKEN = '7464935338:AAHz6kOVLkom_7M9INTtO3J9TUihIEXM0DE'
+TOKEN = '6767569372:AAHBwlrvRvYkUxhBigvKSELDuWZToyVA5fM'
 
 def search_movie(movie_name):
     # Base URL for JustWatch search
@@ -26,6 +26,10 @@ def search_movie(movie_name):
     # Parse the HTML content of the search results page with BeautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
     
+    # Log the entire response to understand the structure
+    with open("search_results.html", "w", encoding="utf-8") as file:
+        file.write(soup.prettify())
+    
     # Find the first movie link in the search results
     movie_link = soup.find("a", class_="title-list-grid__item--link")
     
@@ -36,6 +40,10 @@ def search_movie(movie_name):
         # Send a GET request to the movie's page
         movie_response = requests.get(movie_url)
         movie_soup = BeautifulSoup(movie_response.text, 'html.parser')
+        
+        # Log the movie page response to understand the structure
+        with open("movie_page.html", "w", encoding="utf-8") as file:
+            file.write(movie_soup.prettify())
         
         # Extract the movie name
         movie_name_tag = movie_soup.find("h1", class_="title")
@@ -59,6 +67,7 @@ def search_movie(movie_name):
         
         return movie_details
     else:
+        print("No movie link found in the search results.")
         return None
 
 def start(update: Update, context: CallbackContext) -> None:
