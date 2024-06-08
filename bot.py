@@ -18,6 +18,11 @@ def search_movie(movie_name):
     # Send a GET request to search for the movie
     response = requests.get(base_url, params=params)
     
+    # Check if the request was successful
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        return None
+    
     # Parse the HTML content of the search results page with BeautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
     
@@ -33,7 +38,8 @@ def search_movie(movie_name):
         movie_soup = BeautifulSoup(movie_response.text, 'html.parser')
         
         # Extract the movie name
-        movie_name = movie_soup.find("h1", class_="title").text.strip() if movie_soup.find("h1", class_="title") else None
+        movie_name_tag = movie_soup.find("h1", class_="title")
+        movie_name = movie_name_tag.text.strip() if movie_name_tag else None
         
         # Extract IMDb ID
         imdb_link = movie_soup.find("a", href=lambda href: href and "imdb.com" in href)
@@ -71,7 +77,7 @@ def search(update: Update, context: CallbackContext) -> None:
                 f"Streaming Providers: {', '.join(movie_details['Streaming Providers'])}"
             )
         else:
-            response_message = "Movie not found."
+            response_message = "Movie not found or an error occurred while fetching details."
     else:
         response_message = "Please provide a movie name."
     
