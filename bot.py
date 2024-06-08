@@ -1,6 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
 import imdb  # Install using `pip install imdbpy`
+from telegram import Update, Ext  # Install using `pip install python-telegram-bot`
+
+# **DO NOT include your bot token here!**
+# Store it securely in an environment variable or a separate configuration file.
+bot_token = os.getenv("6767569372:AAHBwlrvRvYkUxhBigvKSELDuWZToyVA5fM")  # Replace with your actual token
 
 def search_justwatch(movie_name):
     """Searches Justwatch for a movie and returns the movie URL if found.
@@ -75,28 +80,29 @@ def get_imdb_info(movie_title):
         return {}
 
 
-def main():
-    movie_name = input("Enter the movie name: ")
+def handle_search(update: Update, context: Ext.CallbackContext):
+    """Handles user search queries."""
 
-    # **DO NOT include your bot token here!**
-    # Store it securely in an environment variable or a separate configuration file.
-    # Replace '<YOUR_BOT_TOKEN>' with the actual token when deploying the bot.
+    # Extract movie name from the message (assuming single word after "/search")
+    movie_name = update.message.text.split()[1]
 
     justwatch_url = search_justwatch(movie_name)
 
     if justwatch_url:
-        print(f"Justwatch URL: {justwatch_url}")
+        update.message.reply_text(f"Justwatch URL: {justwatch_url}")
 
         # Extract movie title from Justwatch URL (heuristic)
         movie_title = justwatch_url.split("/")[-1].replace("-", " ")
 
         imdb_info = get_imdb_info(movie_title)
-        print(f"Movie Title: {movie_title}")
-        print(f"IMDb ID: {imdb_info.get('imdb_id')}")
-        print(f"Potential Streaming Provider: {imdb_info.get('streaming_provider')}")
+        imdb_id = imdb_info.get('imdb_id')
+        streaming_provider = imdb_info.get('streaming_provider')
+
+        message = f"Movie Title: {movie_title}\n"
+        if imdb_id:
+            message += f"IMDb ID: {imdb_id}\n"
+        if streaming_provider:
+            message += f"Potential Streaming Provider: {streaming_provider}"
+        update.message.reply_text(message)
     else:
-        print(f"Movie '{movie_name}' not found on Justwatch.")
-
-
-if __name__ == "__main__":
-    main()
+        update.message.reply_text(f"Movie '{movie_name}' not found on Just
