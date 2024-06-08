@@ -5,7 +5,7 @@ from telegram import Update, Ext  # Install using `pip install python-telegram-b
 
 # **DO NOT include your bot token here!**
 # Store it securely in an environment variable or a separate configuration file.
-bot_token = os.getenv("6767569372:AAHBwlrvRvYkUxhBigvKSELDuWZToyVA5fM")  # Replace with your actual token
+bot_token = "6767569372:AAHBwlrvRvYkUxhBigvKSELDuWZToyVA5fM"  # Replace with your actual token
 
 def search_justwatch(movie_name):
     """Searches Justwatch for a movie and returns the movie URL if found.
