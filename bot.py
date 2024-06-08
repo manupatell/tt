@@ -1,114 +1,102 @@
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import imdb  # Install using `pip install imdbpy`
 
-# Your Telegram bot token
-TOKEN = '6767569372:AAHBwlrvRvYkUxhBigvKSELDuWZToyVA5fM'
+def search_justwatch(movie_name):
+    """Searches Justwatch for a movie and returns the movie URL if found.
 
-def search_movie(movie_name):
-    # Base URL for JustWatch search
-    base_url = "https://www.justwatch.com/in/search"
-    
-    # Parameters for the search query
-    params = {
-        "q": movie_name
-    }
-    
-    # Send a GET request to search for the movie
-    response = requests.get(base_url, params=params)
-    
-    # Check if the request was successful
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        return None
-    
-    # Parse the HTML content of the search results page with BeautifulSoup
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Log the entire response to understand the structure
-    with open("search_results.html", "w", encoding="utf-8") as file:
-        file.write(soup.prettify())
-    
-    # Find the first movie link in the search results
-    movie_link = soup.find("a", class_="title-list-grid__item--link")
-    
-    # If a movie link is found
-    if movie_link:
-        movie_url = "https://www.justwatch.com" + movie_link["href"]
-        
-        # Send a GET request to the movie's page
-        movie_response = requests.get(movie_url)
-        movie_soup = BeautifulSoup(movie_response.text, 'html.parser')
-        
-        # Log the movie page response to understand the structure
-        with open("movie_page.html", "w", encoding="utf-8") as file:
-            file.write(movie_soup.prettify())
-        
-        # Extract the movie name
-        movie_name_tag = movie_soup.find("h1", class_="title")
-        movie_name = movie_name_tag.text.strip() if movie_name_tag else None
-        
-        # Extract IMDb ID
-        imdb_link = movie_soup.find("a", href=lambda href: href and "imdb.com" in href)
-        imdb_id = imdb_link["href"].split('/')[-2] if imdb_link else None
-        
-        # Extract streaming providers
-        providers = movie_soup.find_all("div", class_="price-comparison__grid__row__icon")
-        streaming_providers = [provider.get('alt') for provider in providers if provider.get('alt')]
-        
-        # Create a dictionary with movie details
-        movie_details = {
-            "Movie URL": movie_url,
-            "Movie Name": movie_name,
-            "IMDb ID": imdb_id,
-            "Streaming Providers": streaming_providers
-        }
-        
-        return movie_details
-    else:
-        print("No movie link found in the search results.")
-        return None
+    Args:
+        movie_name (str): The name of the movie to search for.
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Hello! Use /search <movie_name> to get movie details from JustWatch.')
+    Returns:
+        str: The URL of the movie on Justwatch, or None if not found.
 
-def search(update: Update, context: CallbackContext) -> None:
-    if context.args:
-        movie_name = " ".join(context.args)
-        movie_details = search_movie(movie_name)
-        
-        if movie_details:
-            response_message = (
-                f"Movie URL: {movie_details['Movie URL']}\n"
-                f"Movie Name: {movie_details['Movie Name']}\n"
-                f"IMDb ID: {movie_details['IMDb ID']}\n"
-                f"Streaming Providers: {', '.join(movie_details['Streaming Providers'])}"
-            )
+    Raises:
+        requests.exceptions.RequestException: If an error occurs during the HTTP request.
+    """
+
+    base_url = "https://www.justwatch.com/en/IN/search"  # Adjust region if needed
+    search_params = {"q": movie_name}
+
+    try:
+        response = requests.get(base_url, params=search_params)
+        response.raise_for_status()  # Raise an exception for non-200 status codes
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Try to find the first movie result (heuristic)
+        movie_link = soup.find("a", class_="title-list-grid__item--link")  # Adjust selector as needed
+        if movie_link:
+            return base_url + movie_link["href"]
         else:
-            response_message = "Movie not found or an error occurred while fetching details."
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error searching Justwatch for {movie_name}: {e}")
+        return None
+
+
+def get_imdb_info(movie_title):
+    """Searches IMDb for a movie and returns the IMDb ID and streaming provider (if found).
+
+    Args:
+        movie_title (str): The title of the movie to search for.
+
+    Returns:
+        dict: A dictionary containing the IMDb ID (if found) and a potential streaming 
+              provider (based on heuristics).
+
+    Raises:
+        imdb.exceptions.IMDbError: If an error occurs while fetching IMDb data.
+    """
+
+    ia = imdb.IMDb()
+
+    try:
+        # Search IMDb by title (may return multiple results)
+        movies = ia.search_movie(movie_title)
+
+        # Check if results are found and pick the first match (heuristic)
+        if movies:
+            movie = movies[0]
+            imdb_id = movie.movieID
+            # Try to identify streaming provider from movie description (limited accuracy)
+            streaming_provider = None
+            for provider in ["netflix", "hulu", "disneyplus"]:
+                if provider in movie.summary.lower():
+                    streaming_provider = provider.capitalize()
+                    break
+            return {"imdb_id": imdb_id, "streaming_provider": streaming_provider}
+        else:
+            return {}
+
+    except imdb.exceptions.IMDbError as e:
+        print(f"Error fetching IMDb data for {movie_token}: {e}")
+        return {}
+
+
+def main():
+    movie_name = input("Enter the movie name: ")
+
+    # **DO NOT include your bot token here!**
+    # Store it securely in an environment variable or a separate configuration file.
+    # Replace '<YOUR_BOT_TOKEN>' with the actual token when deploying the bot.
+
+    justwatch_url = search_justwatch(movie_name)
+
+    if justwatch_url:
+        print(f"Justwatch URL: {justwatch_url}")
+
+        # Extract movie title from Justwatch URL (heuristic)
+        movie_title = justwatch_url.split("/")[-1].replace("-", " ")
+
+        imdb_info = get_imdb_info(movie_title)
+        print(f"Movie Title: {movie_title}")
+        print(f"IMDb ID: {imdb_info.get('imdb_id')}")
+        print(f"Potential Streaming Provider: {imdb_info.get('streaming_provider')}")
     else:
-        response_message = "Please provide a movie name."
-    
-    update.message.reply_text(response_message)
+        print(f"Movie '{movie_name}' not found on Justwatch.")
 
-def main() -> None:
-    # Create the Updater and pass it your bot's token.
-    updater = Updater(TOKEN)
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
-
-    # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("search", search))
-
-    # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT
-    updater.idle()
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
